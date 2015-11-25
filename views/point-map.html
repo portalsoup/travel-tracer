@@ -1,0 +1,53 @@
+<html>
+<head>
+    <style type="text/css">
+        #map-canvas {
+            height: 500px;
+            width: 600px;
+        }
+
+    </style>
+    <script type="text/javascript"
+            src="https://maps.googleapis.com/maps/api/js?v=3.exp&key=AIzaSyBSQ9YBc1bZBEtRgNXw46OJ5p7ssOjiM84"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+
+    <script>
+        var map = null;
+
+        // Initialize the map and place the marker.
+        function initialize() {
+            console.log("init");
+
+            var mapOptions = {
+                zoom:7,
+                center: new google.maps.LatLng("{{.Latitude}}", "{{.Longitude}}")
+            };
+
+            map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
+
+            var location = new google.maps.LatLng("{{.Latitude}}", "{{.Longitude}}");
+
+            placeMarker(location);
+        }
+
+        function placeMarker(location) {
+            var marker = new google.maps.Marker({
+                position: location,
+                map: map
+            });
+        }
+
+        // Call initialize on window load.
+        google.maps.event.addDomListener(window, 'load', initialize);
+
+    </script>
+
+</head>
+<body>
+
+<div id="map-canvas"></div>
+
+</body>
+<footer>
+</footer>
+</html>
