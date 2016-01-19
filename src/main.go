@@ -2,15 +2,10 @@ package main
 import (
 	"html/template"
 	"fmt"
-	//"io/ioutil"
 	"net/http"
-	//"regexp"
-	//"errors"
 	"strconv"
-	//"encoding/json"
 )
 
-// templates is a cache for html templates.
 var (
 	route = template.Must(template.ParseFiles(
 		"../views/route-map.html",
@@ -19,7 +14,6 @@ var (
 	point = template.Must(template.ParseFiles(
 		"../views/point-map.html",
 	))
-	//validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 )
 
 // Coordinate represents a single point on earth using latitude and longitude.
