@@ -6,18 +6,26 @@ import (
 	"net/http"
 	//"regexp"
 	//"errors"
+	"strconv"
+	//"encoding/json"
 )
 
 // templates is a cache for html templates.
 var (
-	templates = template.Must(template.ParseFiles("../views/point-map.html"))
+	route = template.Must(template.ParseFiles(
+		"../views/route-map.html",
+	))
+
+	point = template.Must(template.ParseFiles(
+		"../views/point-map.html",
+	))
 	//validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 )
 
 // Coordinate represents a single point on earth using latitude and longitude.
 type Coordinate struct {
-	Latitude string
-	Longitude string
+	Latitude float64
+	Longitude float64
 }
 
 // Query represents a single url query.
@@ -33,44 +41,56 @@ func getCoordinates(r *http.Request) (c *Coordinate, err error) {
 		fmt.Println("No queries found!")
 	}
 
-	c = &Coordinate{Latitude: r.FormValue("latitude"), Longitude: r.FormValue("longitude")}
+	lat, err := strconv.ParseFloat(r.FormValue("latitude"), 64)
 
-	if c.Latitude == "" || c.Longitude == "" {
-		fmt.Printf("There was a problem finding the lat [%s] or lng [%s]\n", c.Latitude, c.Longitude)
+	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("Lat: %s Lng: %s\n", c.Latitude, c.Longitude)
+
+	lng, err := strconv.ParseFloat(r.FormValue("longitude"), 64)
+
+	if err != nil {
+		return nil, err
+	}
+
+	c = &Coordinate{Latitude: lat, Longitude: lng}
+
+	fmt.Printf("Lat: %f Lng: %f\n", c.Latitude, c.Longitude)
 	return c, nil
 }
 
-// renderTemplate searches and substitutes arguments in a template with real values.
-func renderTemplate(w http.ResponseWriter, tmpl string, coords *Coordinate) {
-	err := templates.ExecuteTemplate(w, tmpl + ".html", coords)
+// pointHandler handles the point-map endpoint and renders the appropriate template.
+func pointHandler(w http.ResponseWriter, r *http.Request) {
+	coord, _ := getCoordinates(r)
+
+	err := point.ExecuteTemplate(w, "point-map.html", coord)
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-// makeHandler to be honest I forget how this works, this was an "optimization" that a tutorial did that seems to work magic.
-func makeHandler(fn func (http.ResponseWriter, *http.Request, string, string)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-//		m := validPath.FindStringSubmatch(r.URL.Path)
-//		if m == nil {
-//			http.NotFound(w, r)
-//			return
-//		}
-		fn(w, r, "", "")
+func routeHandler(w http.ResponseWriter, r *http.Request) {
+
+	coords := []Coordinate{
+		{Latitude: 44.053, Longitude: -123.091},
+		{Latitude: 37.772, Longitude: -122.214},
+		{Latitude: 21.291, Longitude: -157.821},
+		{Latitude: -18.14, Longitude: 178.431},
+		{Latitude: -29.467, Longitude: 153.027},
+		{Latitude: 23.467, Longitude: 74.848},
+	}
+
+	fmt.Println(coords)
+
+	err := route.ExecuteTemplate(w, "route-map.html", coords)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-// pointHandler handles the point-map endpoint and renders the appropriate template.
-func pointHandler(w http.ResponseWriter, r *http.Request, latitude string, longitude string) {
-	coord, _ := getCoordinates(r)
-
-	renderTemplate(w, "point-map", coord)
-}
-
 func main() {
-	http.HandleFunc("/point-map", makeHandler(pointHandler))
+	http.HandleFunc("/map/point", pointHandler)
+	http.HandleFunc("/map/route", routeHandler)
 	http.ListenAndServe(":8080", nil)
 }

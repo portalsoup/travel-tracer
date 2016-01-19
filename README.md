@@ -6,8 +6,15 @@ long trip using their mobile device's onboard sensors
 
 Currently the only sample endpoint I've made playing around so far is:
 
-localhost:8080/point-map?latitude=value&longitude=value
+localhost:8080/map/point?latitude=41.877120&longitude=-87.630539
 
-Such as: 
+and
 
-localhost:8080/point-map?latitude=41.877120&longitude=-87.630539
+localhost:8080/map/route
+
+
+Todo
+Hook up database
+Store routes in database
+view routes from database
+Decide whether to move forward with google maps or openstreetmap
