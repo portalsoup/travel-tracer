@@ -22,14 +22,8 @@ type Coordinate struct {
 	Longitude float64
 }
 
-// Query represents a single url query.
-type Query struct {
-	Key string
-	Value string
-}
-
-// getCoordinates will parse out the coordinate query values from the incoming request.
-func getCoordinates(r *http.Request) (c *Coordinate, err error) {
+// getLatLngParams will parse out the coordinate query values from the incoming request.
+func getLatLngParams(r *http.Request) (c *Coordinate, err error) {
 	queries := r.URL.RawQuery
 	if queries == "" {
 		fmt.Println("No queries found!")
@@ -53,17 +47,24 @@ func getCoordinates(r *http.Request) (c *Coordinate, err error) {
 	return c, nil
 }
 
-// pointHandler handles the point-map endpoint and renders the appropriate template.
+// pointHandler handles the /map/point endpoint and renders the appropriate template.
 func pointHandler(w http.ResponseWriter, r *http.Request) {
-	coord, _ := getCoordinates(r)
+	coord, err := getLatLngParams(r)
 
-	err := point.ExecuteTemplate(w, "point-map.html", coord)
+	if err != nil {
+		fmt.Println(err.Error())
+		http.Error(w, "Unexpected query parameters.", http.StatusInternalServerError)
+		return
+	}
+
+	err = point.ExecuteTemplate(w, "point-map.html", coord)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
+// routeHandler handles the /map/route endpoint and renders the appropriate template.
 func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	coords := []Coordinate{
