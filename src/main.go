@@ -1,91 +1,52 @@
 package main
 import (
-	"html/template"
-	"fmt"
 	"net/http"
-	"strconv"
+	"log"
+	"jcleary/traveltracer/src/db"
+	"jcleary/traveltracer/src/routes"
+	"flag"
 )
 
-var (
-	route = template.Must(template.ParseFiles(
-		"../views/route-map.html",
-	))
-
-	point = template.Must(template.ParseFiles(
-		"../views/point-map.html",
-	))
-)
-
-// Coordinate represents a single point on earth using latitude and longitude.
-type Coordinate struct {
-	Latitude float64
-	Longitude float64
-}
-
-// getLatLngParams will parse out the coordinate query values from the incoming request.
-func getLatLngParams(r *http.Request) (c *Coordinate, err error) {
-	queries := r.URL.RawQuery
-	if queries == "" {
-		fmt.Println("No queries found!")
-	}
-
-	lat, err := strconv.ParseFloat(r.FormValue("latitude"), 64)
-
-	if err != nil {
-		return nil, err
-	}
-
-	lng, err := strconv.ParseFloat(r.FormValue("longitude"), 64)
-
-	if err != nil {
-		return nil, err
-	}
-
-	c = &Coordinate{Latitude: lat, Longitude: lng}
-
-	fmt.Printf("Lat: %f Lng: %f\n", c.Latitude, c.Longitude)
-	return c, nil
-}
-
-// pointHandler handles the /map/point endpoint and renders the appropriate template.
-func pointHandler(w http.ResponseWriter, r *http.Request) {
-	coord, err := getLatLngParams(r)
-
-	if err != nil {
-		fmt.Println(err.Error())
-		http.Error(w, "Unexpected query parameters.", http.StatusInternalServerError)
-		return
-	}
-
-	err = point.ExecuteTemplate(w, "point-map.html", coord)
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-// routeHandler handles the /map/route endpoint and renders the appropriate template.
-func routeHandler(w http.ResponseWriter, r *http.Request) {
-
-	coords := []Coordinate{
-		{Latitude: 44.053, Longitude: -123.091},
-		{Latitude: 37.772, Longitude: -122.214},
-		{Latitude: 21.291, Longitude: -157.821},
-		{Latitude: -18.14, Longitude: 178.431},
-		{Latitude: -29.467, Longitude: 153.027},
-		{Latitude: 23.467, Longitude: 74.848},
-	}
-
-	fmt.Println(coords)
-
-	err := route.ExecuteTemplate(w, "route-map.html", coords)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+type Config struct {
+	dbHost string
 }
 
 func main() {
-	http.HandleFunc("/map/point", pointHandler)
-	http.HandleFunc("/map/route", routeHandler)
-	http.ListenAndServe(":8080", nil)
+
+	config := initFlags()
+
+	dbStore := new(db.DataStore)
+
+	err :=  dbStore.OpenSession(config.dbHost)
+	if err != nil {
+		panic(err)
+	}
+
+	defer db.Mgo.CloseSession()
+
+	// Init the endpoints
+	initHandlers()
+
+	// Begin
+	log.Println("About to listen and serve... ")
+	http.ListenAndServe(":8284", nil)
+	log.Println("About to terminate")
+}
+
+func initHandlers() {
+	log.Print("Initializing handlers... ")
+	http.HandleFunc("/map/point", routes.PointHandler)
+	http.HandleFunc("/map/route", routes.RouteHandler)
+	http.HandleFunc("/raw/coordinate", routes.RawCoordinateHandler)
+	http.HandleFunc("/raw/route", routes.RawRouteHandler)
+	log.Println("complete")
+}
+
+func initFlags() Config {
+	var host = flag.String("db.host", "localhost", "define the database hostname")
+
+	log.Println(*host)
+	flag.Parse()
+
+	return Config{dbHost: *host}
 }
