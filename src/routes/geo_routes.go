@@ -1,13 +1,14 @@
 package routes
 import (
 	"net/http"
-	"log"
 	"fmt"
 	"jcleary/traveltracer/src/geo"
 	"gopkg.in/mgo.v2/bson"
 	"encoding/json"
 	"html/template"
 	"strconv"
+	"github.com/julienschmidt/httprouter"
+	"errors"
 )
 
 var (
@@ -21,12 +22,10 @@ var (
 )
 
 // pointHandler handles the /map/point endpoint and renders the appropriate template.
-func PointHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Entered the point handler")
+func PointHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	coord, err := getLatLngParams(r)
 
 	if err != nil {
-		fmt.Println(err.Error())
 		http.Error(w, "Unexpected query parameters.", http.StatusInternalServerError)
 		return
 	}
@@ -35,12 +34,12 @@ func PointHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 
 // routeHandler handles the /map/route endpoint and renders the appropriate template.
-func RouteHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Entered the route handler")
+func RouteHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
 	coords := []geo.Coordinate{
 		{Latitude: 44.053, Longitude: -123.091, Id: bson.NewObjectId()},
@@ -51,29 +50,82 @@ func RouteHandler(w http.ResponseWriter, r *http.Request) {
 		{Latitude: 23.467, Longitude: 74.848, Id: bson.NewObjectId()},
 	}
 
-	fmt.Println(coords)
-
 	err := route.ExecuteTemplate(w, "route-map.html", coords)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 
-func RawCoordinateHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Entered the raw coordinate handler")
+// StoreCoordinate handles the /db/saveCoordinate endpoint and stores a coordinate into the database
+func StoreCoordinate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	coord, err := getLatLngParams(r)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	_, err = geo.StoreCoordinate(*coord)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// GetCoordinate handles the /coordinate/:id endpoin
+func GetCoordinate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+
+	coord, err := geo.FindCoordinate(bson.ObjectIdHex(params.ByName("id")))
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json, err := json.Marshal(coord)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Fprintf(w, string(json))
+}
+
+
+func FindAllCoordinates(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	coords, err := geo.FindAllCoordinates()
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json, err := json.Marshal(coords)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Fprintf(w, string(json))
+}
+
+
+func RawCoordinateHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
 	coord := &geo.Coordinate{Latitude: 44.053, Longitude: -123.091, Id: bson.NewObjectId()}
 
 	b, err := json.Marshal(coord)
 	if err != nil {
-		panic(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	fmt.Fprintf(w, string(b))
 
 }
 
-func RawRouteHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Entered the raw route handler")
+func RawRouteHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
 	coords := []geo.Coordinate{
 		{Latitude: 44.053, Longitude: -123.091, Id: bson.NewObjectId()},
@@ -89,11 +141,10 @@ func RawRouteHandler(w http.ResponseWriter, r *http.Request) {
 		Coordinates: coords,
 	}
 
-
 	b, err := json.Marshal(route)
-
 	if err != nil {
-		panic(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	fmt.Fprintf(w, string(b))
 }
@@ -101,11 +152,10 @@ func RawRouteHandler(w http.ResponseWriter, r *http.Request) {
 
 // getLatLngParams will parse out the coordinate query values from the incoming request.
 func getLatLngParams(r *http.Request) (c *geo.Coordinate, err error) {
-	log.Println("Entered the latlng extractor")
 
 	queries := r.URL.RawQuery
 	if queries == "" {
-		fmt.Println("No queries found!")
+		errors.New("No url queries were declared!  Expect 'latitude' and 'longitude' values")
 	}
 
 	lat, err := strconv.ParseFloat(r.FormValue("latitude"), 64)
@@ -122,7 +172,6 @@ func getLatLngParams(r *http.Request) (c *geo.Coordinate, err error) {
 
 	c = &geo.Coordinate{Latitude: lat, Longitude: lng, Id: bson.NewObjectId()}
 
-	fmt.Printf("Lat: %f Lng: %f\n", c.Latitude, c.Longitude)
 	return c, nil
 
 }

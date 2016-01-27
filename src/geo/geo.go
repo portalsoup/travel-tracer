@@ -1,14 +1,9 @@
 package geo
 import (
 	"gopkg.in/mgo.v2/bson"
-	"log"
 	"jcleary/traveltracer/src/db"
 )
 
-
-// func getRoute(routeId bson.ObjectId) (coords []Coordinate, err error) {
-
-// }
 
 // Coordinate represents a single point on earth using latitude and longitude.
 type Coordinate struct {
@@ -17,39 +12,51 @@ type Coordinate struct {
 	Longitude float64 	`bson:"longitude"`
 }
 
+// Route is a series of coordinates that represent a traveled path
 type Route struct {
 	Id bson.ObjectId 			`bson:"_id"`
 	Coordinates []Coordinate 	`bson:"coordinates"`
 }
 
+// StoreCoordinate stores a coordinate into the coordinate collection
+func StoreCoordinate(coordinate Coordinate) (coordinateId bson.ObjectId, err error) {
 
-func StoreCoordinate(coordinate Coordinate) error {
 	col := db.Mgo.CoordinateCol()
 
-	upsertData := bson.M{"$set": coordinate}
-	info, err := col.Upsert(coordinate.Id, upsertData)
+	_, err = col.UpsertId(coordinate.Id, &coordinate)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	log.Println("UpsertId -> ", info, err)
-
-	return nil
+	return coordinate.Id, nil
 }
 
-func FindCoordinate(coordinateId bson.ObjectId) error {
+// FindCoordinate finds a coordinate with a matching ID in the coordinate collection
+func FindCoordinate(coordinateId bson.ObjectId) (result Coordinate, err error) {
 	col := db.Mgo.CoordinateCol()
 
-	result := Coordinate{}
-	err := col.FindId(coordinateId).One(&result)
+	result = Coordinate{}
+	err = col.FindId(coordinateId).One(&result)
 
 	if err != nil {
-		log.Println("FindId errorL ", err)
-		return err
+		return result, err
 	}
 
-	log.Println("Found the coordinate: ", result)
-	return nil
+	return result, nil
 }
+
+// FindAllCoordinates finds all coordinates contained in the coordinate collection
+func FindAllCoordinates() (result []Coordinate, err error) {
+	col := db.Mgo.CoordinateCol()
+	result = []Coordinate{}
+	err = col.Find(nil).All(&result)
+
+	if err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
 

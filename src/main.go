@@ -1,14 +1,18 @@
 package main
 import (
-	"net/http"
-	"log"
 	"jcleary/traveltracer/src/db"
 	"jcleary/traveltracer/src/routes"
 	"flag"
+	"github.com/julienschmidt/httprouter"
+	"net/http"
+	"log"
+	"strconv"
 )
 
+// Config stores the active configuration used by this instance of the server.
 type Config struct {
 	dbHost string
+	port int
 }
 
 func main() {
@@ -25,28 +29,36 @@ func main() {
 	defer db.Mgo.CloseSession()
 
 	// Init the endpoints
-	initHandlers()
+	router := initRouter()
 
 	// Begin
-	log.Println("About to listen and serve... ")
-	http.ListenAndServe(":8284", nil)
-	log.Println("About to terminate")
+	log.Println("Listening on port " + strconv.Itoa(config.port) + "... ")
+	log.Fatal(http.ListenAndServe(":" + strconv.Itoa(config.port), router))
 }
 
-func initHandlers() {
+// Init initializes the httprouter.Router and map the routes.
+func initRouter() (router *httprouter.Router) {
 	log.Print("Initializing handlers... ")
-	http.HandleFunc("/map/point", routes.PointHandler)
-	http.HandleFunc("/map/route", routes.RouteHandler)
-	http.HandleFunc("/raw/coordinate", routes.RawCoordinateHandler)
-	http.HandleFunc("/raw/route", routes.RawRouteHandler)
-	log.Println("complete")
+	router = httprouter.New()
+
+
+
+	router.GET("/map/point", routes.PointHandler)
+	router.GET("/map/route", routes.RouteHandler)
+	router.GET("/coordinate", routes.RawCoordinateHandler)
+	router.GET("/coordinates/:id", routes.GetCoordinate)
+	router.GET("/coordinates", routes.FindAllCoordinates)
+	router.GET("/route", routes.RawRouteHandler)
+	router.PUT("/db/saveCoordinate", routes.StoreCoordinate)
+
+	return router;
 }
 
+// initFlags initializes the command line flags and creates a new Config
 func initFlags() Config {
-	var host = flag.String("db.host", "localhost", "define the database hostname")
-
-	log.Println(*host)
+	var dbHost = flag.String("db.host", "localhost", "define the database hostname")
+	var appPort = flag.Int("app.port", 8080, "define the port to run this app on")
 	flag.Parse()
 
-	return Config{dbHost: *host}
+	return Config{dbHost: *dbHost, port: *appPort}
 }
